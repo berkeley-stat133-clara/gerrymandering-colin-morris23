@@ -2,4 +2,173 @@
 title: Dashboard
 format: dashboard
 ---
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| show: false
+
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(stringr)
+library(sf)
+
+ab604_results <- read_csv("data/ab604_results.csv")
+ab604_districts <- read_sf("data/ab604_districts.shp")
+ab604byDist <- read_csv("data/ab604byDist.csv")
+svprec1byDist <- read_csv("data/svprec1byDist.csv")
+svprec1 <- read_csv("data/svprec1.csv")
+```
+
+
+2024:
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+svprec1byDist|>
+  summarize(dem_wins = sum(dem_win),
+            rep_wins = sum(!dem_win),
+            dem_win_ratio = dem_wins/(dem_wins+rep_wins))
+```
+
+2024 Gerrymandered:
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+ab604byDist|>
+  summarize(dem_wins = sum(dem_win),
+            rep_wins = sum(!dem_win),
+            dem_win_ratio = dem_wins/(dem_wins+rep_wins))
+```
+
+
+What 2024 would look like under new districts:
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+ab604byDist <- ab604byDist|>
+  mutate(winner = ifelse(dem_win, "Democrat", "Republican"))
+
+dist <- ab604_districts |>
+  left_join(ab604byDist, by = "DISTRICT")
+  
+ggplot(dist) +
+  geom_sf(aes(fill = winner))+
+  scale_fill_manual(values = c(
+      "Democrat" = "#4575b4",   
+      "Republican" = "#d73027"))
+```
+
+Mean-Median Score in 2024
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+svprec1byDist <- svprec1|>
+  group_by(CDDIST)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumTotal = sum(cngtotal),
+            prop_dem = sum(CNGDEM01)/sum(cngtotal),
+            dem_win = sumCNGDEM01 > sumCNGREP01)
+svprec1byDist |>
+  summarize(mean_p = mean(prop_dem),
+            med_p = median(prop_dem))|>
+  mutate(score = mean_p - med_p)|>
+  select(score)
+```
+
+Efficiency Gap in 2024:
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+n_wasted <- function(by, against) {
+  w_threshold <- floor((by+against)/2) + 1
+  n_wasted <- ifelse(by>against, by - w_threshold, by)
+  n_wasted
+}
+
+svprec1byDist |>
+  mutate(d_wasted = n_wasted(sumCNGDEM01, sumCNGREP01),
+         r_wasted = n_wasted(sumCNGREP01, sumCNGDEM01))|>
+  summarize(total_d_wasted = sum(d_wasted),
+            total_r_wasted = sum(r_wasted),
+            total = sum(sumCNGDEM01+sumCNGREP01))|>
+  mutate(effeciency_gap = (total_d_wasted - total_r_wasted)/total)|>
+  select(effeciency_gap)
+```
+
+Percentage of Seats Won by Democrats in 2024:
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+svprec1byDist|>
+  summarize(dem_wins = sum(dem_win),
+            rep_wins = sum(!dem_win),
+            dem_win_ratio = dem_wins/(dem_wins+rep_wins))|>
+  select(dem_win_ratio)
+```
+
+
+Efficiency Gap in 2024 if using new districts:
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+ab604byDist <- ab604_results|>
+  group_by(DISTRICT)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumTotal = sum(CNGREP01+CNGDEM01),
+            prop_dem = sum(CNGDEM01)/sum(CNGREP01+CNGDEM01),
+            dem_win = sumCNGDEM01 > sumCNGREP01)
+
+ab604byDist <- ab604byDist|>
+  mutate(prop_dem = sumCNGDEM01 / (sumCNGDEM01+sumCNGREP01))
+ab604byDist |>
+  summarize(mean_p = mean(prop_dem),
+            med_p = median(prop_dem))|>
+  mutate(score = mean_p - med_p)|>
+  select(score)
+```
+
+
+Efficiency Gap in 2024 using new districts:
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+ab604byDist |>
+  mutate(d_wasted = n_wasted(sumCNGDEM01, sumCNGREP01),
+         r_wasted = n_wasted(sumCNGREP01, sumCNGDEM01))|>
+  summarize(total_d_wasted = sum(d_wasted),
+            total_r_wasted = sum(r_wasted),
+            total = sum(sumCNGDEM01+sumCNGREP01))|>
+  mutate(effeciency_gap = (total_d_wasted - total_r_wasted)/total)|>
+  select(effeciency_gap)
+```
+
+Percentage of Seats Won by Democrats in 2024 using new districts:
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+ab604byDist|>
+  summarize(dem_wins = sum(dem_win),
+            rep_wins = sum(!dem_win),
+            dem_win_ratio = dem_wins/(dem_wins+rep_wins))|>
+  select(dem_win_ratio)
+```
+
+Methodology: The estimation for the districts under the new maps is not exactly accurate because it assumes votes throughout a precinct are uniformly distributed across land area, which is not the case. 
 
