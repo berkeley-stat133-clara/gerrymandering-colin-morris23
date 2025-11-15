@@ -5,24 +5,68 @@ format: typst
 
 ### Question 1
 
-Put your question here.
+What district had the closest race between a Democrat and Republican?
 
 ### Answer 1
 
-Put your answer here.
+```{r}
+svprec1|>
+  group_by(CDDIST)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumTotal = sum(cngtotal))|>
+  mutate(rep_percent = sumCNGREP01/sumTotal,
+         dem_percent = sumCNGDEM01/sumTotal,
+         diff = abs(rep_percent-dem_percent))|>
+  arrange(diff)|>
+  select(sumCNGDEM01,sumCNGREP01, CDDIST, diff)|>
+  slice(1)
+  
+```
+
+Congressional district 45 had the smallest margin of victory, with Democrats
+winning the district by .2 percent. 
 
 ### Question 2
 
-Put your question here.
+What district had the most lopsided race?
 
 ### Answer 2
 
-Put your answer here.
+```{r}
+svprec1|>
+  group_by(CDDIST)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumTotal = sum(cngtotal))|>
+  mutate(rep_percent = sumCNGREP01/sumTotal,
+         dem_percent = sumCNGDEM01/sumTotal,
+         diff = abs(rep_percent-dem_percent))|>
+  arrange(desc(diff))|>
+  select(sumCNGDEM01,sumCNGREP01, CDDIST, diff)|>
+  slice(1)
+```
+
+Congressional district 11 had the most lopsided race
 
 ### Question 3
 
-Put your question here.
+How many districts featured races between candidates from the same party.
 
 ### Answer 3
 
-Put your answer here. 
+```{r}
+svprec|>
+  group_by(CDDIST)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumCNGDEM02 = sum(CNGDEM02),
+            sumCNGREP02 = sum(CNGREP02)) |>
+  filter((sumCNGDEM01 > 0 & sumCNGDEM02 > 0) | 
+           (sumCNGREP01 > 0 & sumCNGREP02 > 0))
+```
+
+
+
+
+

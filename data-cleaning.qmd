@@ -3,4 +3,124 @@ title: Data Cleaning
 format: typst
 ---
 
- 
+```{r}
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(stringr)
+library(sf)
+```
+
+
+```{r}
+svprec <- read.csv("data/g24_sov_by_g24_svprec.csv")
+bydistrict <- read_excel("data/g24-results-by-district.xlsx")
+
+```
+
+```{r}
+svprec <- svprec |>
+  select(where(~!all(. == 0, na.rm = TRUE)))|>
+  filter(CDDIST != 0,
+         CNGDEM01 != "***", 
+         CNGREP01 != "***",
+         CNGDEM02 != "***",
+         CNGREP02 != "***")
+
+svprec<- svprec|>
+  select(COUNTY, SVPREC, CDDIST, TOTVOTE, CNGDEM01, CNGREP01, CNGDEM02, 
+         CNGREP02)|>
+  mutate(CNGREP01 = as.numeric(CNGREP01),
+         CNGDEM01 = as.numeric(CNGDEM01),
+         CNGREP02 = as.numeric(CNGREP02),
+         CNGDEM02 = as.numeric(CNGDEM02),
+         cngtotal = CNGREP01 + CNGDEM01)
+        
+```
+
+
+```{r}
+svprec1 <- svprec1|>
+  filter(CNGDEM01 > 0 & CNGREP01 > 0,
+        CNGDEM02 == 0, 
+        CNGREP02 == 0)
+
+```
+
+```{r}
+check1 <- svprec1|>
+  filter(CDDIST %in% c(16,20,37))
+check1
+```
+
+```{r}
+ab604_districts <- st_read("data/shapefiles/AB604/AB604.shp")
+sr_precincts <- st_read("data/shapefiles/srprec_state_g24_v01_shp/srprec_state_g24_v01_shp.shp")
+```
+
+```{r}
+sr_votes <- read.csv("data/state_g24_sov_data_by_g24_srprec.csv")
+sr_votes <- sr_votes |>
+  select(where(~!all(. == 0, na.rm = TRUE)))|>
+  filter(CDDIST != 0,
+         CNGDEM01 != "***", 
+         CNGREP01 != "***",
+         CNGDEM02 != "***",
+         CNGREP02 != "***")
+
+sr_votes<- sr_votes|>
+  select(COUNTY, SRPREC, CDDIST, TOTVOTE, CNGDEM01, CNGREP01, CNGDEM02, 
+         CNGREP02, SRPREC_KEY)|>
+  mutate(CNGREP01 = as.numeric(CNGREP01),
+         CNGDEM01 = as.numeric(CNGDEM01),
+         CNGREP02 = as.numeric(CNGREP02),
+         CNGDEM02 = as.numeric(CNGDEM02),
+         cngtotal = CNGREP01 + CNGDEM01)
+sr_votes <- sr_votes|>
+  filter(CNGDEM01 > 0 & CNGREP01 > 0,
+        CNGDEM02 == 0, 
+        CNGREP02 == 0)
+```
+
+```{r}
+sr_votes_spatial <- sr_precincts |>
+  left_join(sr_votes, by = "SRPREC_KEY")
+
+sr_precincts <- sr_precincts |>
+ st_transform(3310) |> # switch to equal area projection first
+ st_set_precision(1) |> # snap points to 1 m grid
+ st_make_valid() |> # fix self-intersections/bow-ties
+ st_collection_extract("POLYGON")
+```
+
+
+```{r}
+sr_votes_spatial <- sr_votes_spatial |>
+  filter(!is.na(CNGDEM01) & !is.na(CNGREP01))
+```
+
+
+```{r}
+ab604_districts <- ab604_districts|>
+  st_transform(3310)
+ab604_results <- st_interpolate_aw(
+  x = sr_votes_spatial[, c("CNGDEM01", "CNGREP01")],  
+  to = ab604_districts,  
+  extensive = TRUE  
+)
+```
+
+
+```{r}
+ab604_results <- ab604_districts|>
+  st_drop_geometry() |>
+  bind_cols(st_drop_geometry(ab604_results)).  
+```
+
+```{r}
+write_csv(svprec1, "data/svprec1.csv")
+write_csv(ab604_results, "data/ab604_results.csv")
+st_write(ab604_districts, "data/ab604_districts.shp", delete_dsn = TRUE)
+
+```
+

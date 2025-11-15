@@ -5,8 +5,76 @@ format: typst
 
 ### 2024 Election Results and the 2024 District Map
 
+1: Mean-Median score
+```{r}
+svprec1byDist <-svprec1|>
+  group_by(CDDIST)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumTotal = sum(cngtotal),
+            prop_dem = sum(CNGDEM01)/sum(cngtotal),
+            dem_win = sumCNGDEM01 > sumCNGREP01)
+svprec1byDist |>
+  summarize(mean_p = mean(prop_dem),
+            med_p = median(prop_dem))|>
+  mutate(score = mean_p-med_p)
+```
+
+2: Efficiency Gap:
+
+```{r}
+
+n_wasted <- function(by, against) {
+  w_threshold <- floor((by+against)/2) + 1
+  n_wasted <- ifelse(by>against, by - w_threshold, by)
+  n_wasted
+}
+
+svprec1byDist |>
+  mutate(d_wasted = n_wasted(sumCNGDEM01, sumCNGREP01),
+         r_wasted = n_wasted(sumCNGREP01, sumCNGDEM01))|>
+  summarize(total_d_wasted = sum(d_wasted),
+            total_r_wasted = sum(r_wasted),
+            total = sum(sumCNGDEM01+sumCNGREP01))|>
+  mutate(effeciency_gap = (total_d_wasted - total_r_wasted)/total)
+
+```
+
 
 
 ### 2024 Election Results and the proposed 2025 District Map
 
- 
+```{r}
+
+ab604byDist <- ab604_results|>
+  group_by(DISTRICT)|>
+  summarize(sumCNGREP01 = sum(CNGREP01),
+            sumCNGDEM01 = sum(CNGDEM01),
+            sumTotal = sum(CNGREP01+CNGDEM01),
+            prop_dem = sum(CNGDEM01)/sum(CNGREP01+CNGDEM01),
+            dem_win = sumCNGDEM01 > sumCNGREP01)
+
+ab604byDist <- ab604byDist|>
+  mutate(prop_dem = sumCNGDEM01 / (sumCNGDEM01+sumCNGREP01))
+ab604byDist |>
+  summarize(mean_p = mean(prop_dem),
+            med_p = median(prop_dem))|>
+  mutate(score = mean_p - med_p)
+```
+
+```{r}
+ab604byDist |>
+  mutate(d_wasted = n_wasted(sumCNGDEM01, sumCNGREP01),
+         r_wasted = n_wasted(sumCNGREP01, sumCNGDEM01))|>
+  summarize(total_d_wasted = sum(d_wasted),
+            total_r_wasted = sum(r_wasted),
+            total = sum(sumCNGDEM01+sumCNGREP01))|>
+  mutate(effeciency_gap = (total_d_wasted - total_r_wasted)/total)
+```
+
+```{r}
+write_csv(ab604byDist, "data/ab604byDist.csv")
+write_csv(svprec1byDist, "data/svprec1byDist.csv")
+```
+
+
